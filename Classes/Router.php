@@ -19,7 +19,8 @@ class Router {
     {
         $request = new Request();
         $path = $this->getPath($request);
-        return $this->getResponse($path[2], $request->getMethod(), $path[1], $this->getParams($request));
+        return !empty($path[1]) ?
+        $this->getResponse($path[2], $request->getMethod(), $path[1], $this->getParams($request)) : null;
     }
 
     /**

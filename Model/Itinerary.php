@@ -2,81 +2,67 @@
 
 namespace Model;
 
-class Itinerary {
-
+class Itinerary
+{
     /**
      * @param string $from
      * @param string $to
-     * @param Ticket[] $tickets
+     * @param string|null $type
      * @return array
      */
-    public function createItinerary($from, $to, $tickets)
+    public function createItinerary($from, $to, $type = null)
     {
-        $archive = $tickets;
-        $step = 0;
-        $route = [];
-
-        /**
-         * First step
-         */
-        $start = $step;
-        $finish = count($tickets);
-        foreach ($tickets as $key => $ticket) {
-            if ($ticket->getFrom() == strtolower($from) && $ticket->getTo() == strtolower($to)) {
-                return $this->getPath($ticket);
-            }
-            if ($ticket->getFrom() == strtolower($from)) {
-                $route[$start][$ticket->getTo()] = $ticket->getTicketNumber();
-                unset($tickets[$key]);
-            }
-            if ($ticket->getTo() == strtolower($to)) {
-                $route[$finish][$ticket->getFrom()] = $ticket->getTicketNumber();
-                unset($tickets[$key]);
+        $tickets = (new Tickets())->getTickets($type);
+        $routes = $this->getRoute($from, $to, $tickets, null);
+        $result = [];
+        foreach ($routes as $id => $route) {
+            foreach ($route->getTickets() as $ticket) {
+                $result[$id][] = $ticket->getData();
             }
         }
+        return $result;
+    }
 
-        /**
-         * Second step
-         */
-        if (!empty($route[$start]) && !empty($route[$finish])) {
-            while ($route[$start] > 0 && $route[$finish] > 0) {
-                $secondStart = $start;
-                $secondFinish = $finish;
-                $secondStart = ++$secondStart;
-                $secondFinish = --$secondFinish;
-                foreach ($tickets as $key => $ticket) {
-                    if (empty($route[$start][$ticket->getFrom()])) {
-                        unset($route[$start][$ticket->getFrom()]);
-                    } else {
-                        if (!empty($route[$finish][$ticket->getTo()])) {
-                            echo 'SUCCESS1';
-                            var_dump($route);
-                            echo 'SUCCESS1';
-                            die();
-                        } else {
-                            $route[$secondStart][$ticket->getTo()] = $ticket->getTicketNumber();;
-                        }
+    /**
+     * @param $from
+     * @param $to
+     * @param Ticket[] $tickets
+     * @param Route|null $mainRoute
+     *
+     * @return Route[]
+     */
+    private function getRoute($from, $to, $tickets, Route $mainRoute = null)
+    {
+        /** @var Route[] $routes */
+        $routes = [];
+        foreach ($tickets as $ticket) {
+            //skip ticket if this ticket in route
+            if ($mainRoute != null && !empty($mainRoute->getById($ticket->getTicketNumber()))) {
+                continue;
+            }
+            //skip tickets in once city
+            if ($ticket->getFrom() == $ticket->getTo()) {
+                continue;
+            }
+            if ($ticket->getFrom() == $from) {
+                $route = new Route();
+                if ($mainRoute != null) {
+                    foreach ($mainRoute->getTickets() as $value) {
+                        $route->add($value);
                     }
-                    if (empty($route[$finish][$ticket->getTo()])) {
-                        unset($route[$finish][$ticket->getTo()]);
-                    } else {
-                        $route[$secondFinish][$ticket->getFrom()] = $ticket->getTicketNumber();
+                }
+                $route->add($ticket);
+                if ($ticket->getTo() == $to) {
+                    $routes[] = $route;
+                } else {
+                    $list = $this->getRoute($ticket->getTo(), $to, $tickets, $route);
+                    for ($i = 0; $i < count($list); $i++) {
+                        array_push($routes, $list[$i]);
                     }
+
                 }
             }
         }
-
-
-        var_dump($route);
-        die();
-    }
-
-    private function getPath(Ticket $ticket)
-    {
-        return [
-            Ticket::FROM => $ticket->getFrom(),
-            Ticket::TO => $ticket->getTo(),
-            Ticket::PARAMS => $ticket->getParams(),
-        ];
+        return $routes;
     }
 }
